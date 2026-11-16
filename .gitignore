@@ -1,0 +1,36 @@
+# Environment variables and secrets
+.env
+*.env
+**/.env
+
+# SQLite Database
+*.sqlite3
+db.sqlite3
+
+# Uploaded user media (preserve structure and static media like SPARC26LogoMin.png)
+media_files/ambassador_photos/
+*/media_files/ambassador_photos/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+docs/
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
