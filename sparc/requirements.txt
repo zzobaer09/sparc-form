@@ -1,0 +1,11 @@
+# SPARC 2026 - Ambassador Form & Email
+# Direct dependencies (transitive deps are installed automatically by pip).
+# Install with:  venv/bin/pip install -r requirements.txt
+
+Django==6.1.3
+google-api-python-client==2.202.0
+google-auth==2.62.2
+google-auth-oauthlib==1.5.0
+google-auth-httplib2==0.4.4
+Pillow==13.0.0
+python-dotenv==1.2.4

@@ -10,20 +10,28 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Read secrets and environment-specific config from the .env file sitting
+# next to manage.py. It is gitignored and must never be committed
+# (PDF spec: "Fill .env (never commit it)").
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-#n2g(d5j#qjrh0=jqv*fnbwji%9)(fzfl4ytw%2ngeo305br9s'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes'}
 
 ALLOWED_HOSTS = []
 
@@ -37,6 +45,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Project apps
+    'registration',
+    'emails',
 ]
 
 MIDDLEWARE = [
@@ -54,7 +66,7 @@ ROOT_URLCONF = 'sparc.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -116,6 +128,32 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# User-uploaded media: the club logo and ambassador photos. The photo
+# upload_to is 'ambassador_photos/', which matches the .gitignore rule that
+# keeps SPARC26LogoMin.png but ignores media_files/ambassador_photos/.
+MEDIA_URL = '/media_files/'
+MEDIA_ROOT = BASE_DIR / 'media_files'
+
+
+# Email / Gmail API configuration (values come from .env, matching the
+# PDF spec's "One-time setup" contract).
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+MAIL_SENDER = os.environ.get('MAIL_SENDER', '')
+
+# Google Cloud OAuth client + Gmail API (used by the emails app in Phase 4).
+GOOGLE_CLIENT_ID = os.environ.get('DEV_GOOGLE_CLOUD_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('DEV_GOOGLE_CLOUD_CLIENT_SECRET', '')
+GOOGLE_PROJECT_ID = os.environ.get('DEV_GOOGLE_CLOUD_PROJECT_ID', '')
+GOOGLE_SCOPES = os.environ.get(
+    'DEV_SCOPES', 'https://www.googleapis.com/auth/gmail.send'
+).split()
+GOOGLE_MAIL_API_NAME = os.environ.get('GOOGLE_MAIL_API_NAME', 'gmail')
+GOOGLE_MAIL_API_VERSION = os.environ.get('GOOGLE_MAIL_API_VERSION', 'v1')
+
+# Tokens persisted by the /init/ authorisation flow; refreshed tokens are
+# written back into .env so mail keeps working across server restarts.
+GOOGLE_CLOUD_TOKEN = os.environ.get('GOOGLE_CLOUD_TOKEN', '')
+GOOGLE_CLOUD_REFRESH_TOKEN = os.environ.get('GOOGLE_CLOUD_REFRESH_TOKEN', '')
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
