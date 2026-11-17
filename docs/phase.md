@@ -286,7 +286,7 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [ ] `makemigrations` + `migrate`, create superuser.
 - **Exit:** `manage.py check` clean; `runserver` boots; admin reachable; logo served at `/media_files/SPARC26LogoMin.png`.
 
-### Phase 1 — Data layer *(~1 day)*
+### Phase 1 — Data layer *(~1 day)* ✅ done
 - [ ] `Ambassador` model per §3.4 (unique email, choices, JSON activities).
 - [ ] `MailJob` model verbatim from the PDF incl. `one_mail_per_campaign` constraint.
 - [ ] Migrations for both apps.
