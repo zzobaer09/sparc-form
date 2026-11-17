@@ -305,7 +305,7 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [ ] `thanks.html` fallback (non-JS POST still gets the confirmation message).
 - **Exit:** form renders per spec; IEEE fields toggle; counter stops at 50 words; oversized file rejected client-side.
 
-### Phase 3 — Submission backend *(~1–2 days)*
+### Phase 3 — Submission backend *(~1–2 days)* ✅ done
 - [ ] `AmbassadorForm(ModelForm)`: unique-email friendly error; `clean_photo` (content-type/extension JPG|PNG, size ≤ 10 MB, Pillow `verify()`); `clean_bio` ≤ 50 words; conditional IEEE validation (required iff `is_ieee_member`); all 4 agreement checkboxes enforced; WhatsApp regex; `clean_activities` from the allowed list.
 - [ ] `views.ambassador_apply`: GET renders form, POST validates → `Ambassador.objects.create(...)` inside `transaction.atomic` → return `JsonResponse({"success": True, "message": "Application received. Thank you!"})`; AJAX error path returns field errors as JSON (200-with-error contract or 400).
 - [ ] Slot the **Phase 4** mail hook location (comment) right after create.
