@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Gmail authorisation · SPARC 2026{% endblock %}
+
+{% block content %}
+<div class="page">
+  <section class="card" style="max-width:560px; margin:2rem auto; text-align:center;">
+    {% if status == 'ok' %}
+      <div class="confirm-icon">&#10003;</div>
+      <h2 style="color:#12386e;">Gmail authorised</h2>
+    {% else %}
+      <div class="confirm-icon" style="background:var(--error, #cf222e);">!</div>
+      <h2 style="color:#cf222e;">Authorisation problem</h2>
+    {% endif %}
+
+    <p>{{ message }}</p>
+    {% if detail %}<p class="hint">{{ detail }}</p>{% endif %}
+
+    {% if status != 'ok' %}
+      <p class="hint">
+        Common errors (from the PDF): <strong>invalid_grant</strong> or
+        "re-authorise" &rarr; open /init/authorise/ again &middot;
+        <strong>redirect_uri_mismatch</strong> &rarr; the Google Cloud redirect
+        must be exactly <code>{{ site_url }}/init/oauth2callback</code> &middot;
+        <strong>access_denied</strong> &rarr; add the sending Gmail as a Test
+        user &middot; <strong>403 insufficient scopes</strong> &rarr; DEV_SCOPES
+        must be https://www.googleapis.com/auth/gmail.send
+      </p>
+    {% endif %}
+
+    <p style="margin-top:1rem;"><a href="/init/authorise/">&larr; Back to authorisation</a></p>
+  </section>
+</div>
+{% endblock %}

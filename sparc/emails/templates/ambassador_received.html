@@ -1,0 +1,45 @@
+{# Confirmation mail for the ambassador application (PDF step 4).
+   Email-client-safe: table layout, inline styles only, 600 px wide, logo
+   on top. Contains NO date of birth, student ID or WhatsApp number. #}
+<!doctype html>
+<html>
+<body style="margin:0; padding:0; background:#f2f5fa;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f5fa; padding:24px 0;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px; max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden; font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center" style="background:#12386e; padding:28px 0;">
+      <img src="{{ logo_url }}" width="96" height="96" alt="SPARC 2026"
+           style="display:block; width:96px; height:96px; border-radius:50%;">
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:32px 40px 8px;">
+      <h1 style="margin:0; font-size:20px; color:#12386e;">SPARC Ambassador Application 2026</h1>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:12px 40px 32px; font-size:15px; line-height:1.7; color:#1c2733;">
+      <p style="margin:0 0 16px;">Dear {{ name }},</p>
+      <p style="margin:0 0 16px;">
+        thank you for applying to be a SPARC Ambassador. We have received your
+        application. Selected applicants will be notified by email and given
+        their unique Ambassador Code.
+      </p>
+      <p style="margin:0 0 24px;">Follow us on our social media for updates.</p>
+      <p style="margin:0;">
+        Best regards,<br>
+        <strong>IEEE NSU Student Branch</strong>
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:16px 40px; border-top:1px solid #dbe3ee; font-size:12px; color:#5b6b7c;">
+      SPARC 2026 &middot; Ambassador Form and Email
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

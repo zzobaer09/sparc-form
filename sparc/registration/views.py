@@ -1,6 +1,11 @@
+from threading import Thread
+
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+
+from emails.models import MailJob
+from emails.sender import process_job_in_thread
 
 from .forms import AmbassadorForm
 
@@ -36,17 +41,17 @@ def ambassador_apply(request):
             with transaction.atomic():
                 ambassador = form.save()
 
-                # ---- Phase 4 hook (PDF step 3) ---------------------------
-                # from emails.models import MailJob
-                # from emails.sender import process_job_in_thread
-                # job, _ = MailJob.objects.get_or_create(
-                #     campaign='ambassador_received',
-                #     ambassador=ambassador,
-                #     defaults={'to_email': ambassador.email})
-                # transaction.on_commit(lambda: Thread(
-                #     target=process_job_in_thread, args=(job.id,),
-                #     daemon=True).start())
-                # ----------------------------------------------------------
+                # PDF step 3: create the mail job (pending) first, then a
+                # background thread sends it only AFTER the DB commit, so
+                # the thread never reads an unpersisted row and the form
+                # answers at once either way.
+                job, _ = MailJob.objects.get_or_create(
+                    campaign='ambassador_received',
+                    ambassador=ambassador,
+                    defaults={'to_email': ambassador.email})
+                transaction.on_commit(lambda: Thread(
+                    target=process_job_in_thread, args=(job.id,),
+                    daemon=True).start())
 
             if _is_ajax(request):
                 return JsonResponse({

@@ -1,0 +1,11 @@
+Dear {{ name }},
+
+thank you for applying to be a SPARC Ambassador. We have received your application. Selected applicants will be notified by email and given their unique Ambassador Code.
+
+Follow us on our social media for updates.
+
+Best regards,
+IEEE NSU Student Branch
+
+---
+SPARC 2026 - Ambassador Form and Email

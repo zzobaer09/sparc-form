@@ -6,6 +6,25 @@
 
 ---
 
+## ⚠️ PENDING — OAuth setup (user action, required before any real mail sends)
+
+The code side is done (Phase 4) but **Google Cloud credentials are not yet filled in `.env`**.
+Until this checklist is done, every application saves fine and its `MailJob` fails with
+`Google API needs re-authorisation` — expected, and recoverable later with `send_pending`.
+
+- [ ] Google Cloud Console: new project → enable **Gmail API**
+- [ ] OAuth consent screen: External, scope `gmail.send`, add the sending Gmail as **Test user**
+- [ ] Credentials → OAuth client ID, type **Web application**; redirect URI (byte-exact, no trailing slash):
+      `http://localhost:8000/init/oauth2callback` — plus the live address later
+- [ ] Fill `DEV_GOOGLE_CLOUD_CLIENT_ID`, `DEV_GOOGLE_CLOUD_CLIENT_SECRET`, `DEV_GOOGLE_CLOUD_PROJECT_ID` in `.env`
+- [ ] Run server as superuser → open `/init/authorise/` → sign in with the sending Gmail → Allow
+- [ ] Verify `GOOGLE_CLOUD_TOKEN` / `GOOGLE_CLOUD_REFRESH_TOKEN` are filled in `.env`
+- [ ] Resubmit (or run `python manage.py send_pending` in Phase 5) → expect `[OK] … MsgId=…` and the mail in the Gmail Sent folder
+
+*Reminder promised at the end of Phase 5 and in the final wrap-up.*
+
+---
+
 ## 1. Project Scan (current state)
 
 | Item | Finding |
@@ -311,7 +330,16 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [ ] Slot the **Phase 4** mail hook location (comment) right after create.
 - **Exit:** valid submit creates Ambassador + stores photo under `media_files/ambassador_photos/`; duplicate email rejected; invalid payloads return per-field errors; CSRF enforced.
 
-### Phase 4 — Email pipeline *(~2 days)*
+### Phase 4 — Email pipeline *(~2 days)* ✅ done (code + local verification)
+
+> Remaining for the user (needs a real Google account, cannot be automated):
+> Google Cloud project + Gmail API + OAuth consent (Test user) + Web client
+> credentials → fill `DEV_GOOGLE_CLOUD_*` in `.env` → log in as superuser →
+> open `/init/authorise/` → submit a real application → check Gmail Sent
+> folder. The redirect URI to register (byte-exact, no trailing slash):
+> `http://localhost:8000/init/oauth2callback` plus the live address.
+> During testing: one bug was found and fixed during verification
+> (`_render_result` was missing its `request` argument).
 - [ ] `emails/views.py`: `get_credentials()` (reads env client config + `GOOGLE_CLOUD_TOKEN`/`REFRESH_TOKEN`, auto-refresh, refresh-token write-back to `.env` via `python-dotenv`), `/init/authorise/` (superuser-only, builds Flow with `/init/oauth2callback/` redirect), `/init/oauth2callback/` (exchange + persist tokens, report success).
 - [ ] `emails/sender.py` verbatim-faithful: `build_service()`, `send_mail()` (validate recipient, `render_to_string` txt+html, `EmailMessage`, base64 `urlsafe_b64encode`, `users().messages().send`), `process_job()` (idempotent, `[OK]`/`[FAIL]` console lines, error ≤ 500 chars), `process_job_in_thread()` (closes `connection` in `finally`).
 - [ ] Templates `ambassador_received.html` (600 px, table layout, inline styles, logo `{SITE_URL}/media_files/SPARC26LogoMin.png`, body *"Dear {{ name }}, thank you for applying… Best regards, IEEE NSU Student Branch."* — **no** DOB/student-ID/WhatsApp in the mail) + `.txt` alternative.
