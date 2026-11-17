@@ -362,11 +362,59 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [x] Admin MailJob action delegating to `process_job` (single-job manual retry).
 - **Exit:** forced-failure test (mocked Gmail) → job `failed` with readable reason; "fixing the secret" + `send_pending` sends only the failed one; second run reports nothing to send. Unauthorised run: friendly stderr, jobs untouched. `[OK]`/`[FAIL]` captured via the `emails` logger. Admin "Send now" action verified (POST → job sent).
 
-### Phase 6 — QA, tests & hardening *(~1 day)*
-- [ ] Full PDF verification matrix: `[OK]` line, MailJob counts, Gmail Sent folder, inbox + Spam with SPF/DKIM/DMARC `PASS`, phone + desktop rendering, 3 test addresses all `sent`.
-- [ ] Automated tests: model constraints, form validation (conditional IEEE, word limit, file rules), view flow (success/dup/error), sender with mocked Gmail service, retry command, OAuth views with fakes.
-- [ ] Production checklist: `DEBUG=False`, real `ALLOWED_HOSTS`, live redirect URI added in Google Cloud, secret key/env hygiene, static+media strategy (`whitenoise` optional), logging config.
-- **Exit:** all checklist rows green; test suite passes; doc updated with any deviations.
+### Phase 6 — QA, tests & hardening *(~1 day)* ✅ done (local rows; Gmail rows pending OAuth — see the checklist at the top)
+
+> QA catch: `_confirmation.html` used a three-line `{# … #}` comment — Django
+> does **not** strip multi-line `{# #}` comments (only `{% comment %}` works),
+> so the raw comment leaked into every rendered page since Phase 2. Fixed and
+> guarded by the rendering test.
+- [x] Automated tests — **58 tests, all green** (`venv/bin/python manage.py test`):
+      - `registration/tests.py` (25): model constraints (unique email,
+        `one_mail_per_campaign`, CASCADE delete, MailJob defaults); every form
+        rule (conditional IEEE ×4, 50-word bio, photo required/PNG/JPG/
+        wrong-extension/corrupt/>10 MB, WhatsApp formats, all 4 agreements,
+        activity whitelist, case-insensitive unique email + lowercasing);
+        view flow (GET render with viewport/CSS/photo-guide, AJAX success
+        JSON with the exact message, photo saved under a temp MEDIA_ROOT,
+        non-AJAX 302→`/thanks/`, duplicate + invalid 400 paths,
+        non-AJAX re-render), `on_commit` mail hook queued exactly once,
+        admin registration + changelists.
+      - `emails/tests.py` (33): sender with FakeService (pending→sent,
+        never-send-twice idempotency, failure recording, error truncated to
+        500 chars, exact MIME — subject/from/multipart text+html/absolute
+        logo URL, **no PII**, invalid recipient rejected), `[OK]`/`[FAIL]`
+        captured via the `emails` logger, `send_pending` (`--from-id`
+        skipping, second-run pickup, forced failure + restart hint,
+        nothing-to-send, unauthorised friendly stderr, help text), OAuth
+        (`/init/oauth2callback` byte-exact with a trailing-slash 404 guard,
+        staff-only authorise, unconfigured guidance, real Flow consent
+        redirect with `access_type=offline`+`prompt=consent`, state
+        missing/mismatch 400s, Google-error page, fake-Flow token success
+        persisting both keys, `get_credentials` no-token/refresh-fail/
+        refresh-success/cached branches), admin Send-now (send / cannot-send
+        / sent-only selection), LOGGING config shape.
+      - Django's test runner runs with `DEBUG=False`, so the suite doubles
+        as a no-debug smoke test of the whole site.
+- [x] Production checklist — code side done; server-side rows go on the
+      deploy day:
+      - `settings.py`: `DJANGO_ALLOWED_HOSTS` env-driven (empty = localhost
+        while `DEBUG=True`), `STATIC_ROOT` added (`collectstatic` verified —
+        132 files), `MAILERS` made dev-only so the Gmail-API pipeline is the
+        only mail path and Django's `mail.E001` deploy check stays clean.
+      - `.env.example` documents `DJANGO_ALLOWED_HOSTS`; `.gitignore` adds
+        `staticfiles/`.
+      - Still open **at deploy time** (need a real HTTPS domain):
+        `SECURE_HSTS_SECONDS`, `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`,
+        `CSRF_COOKIE_SECURE` — clear each, then
+        `DJANGO_DEBUG=False DJANGO_ALLOWED_HOSTS=<real> manage.py check --deploy`.
+      - Live redirect URI in Google Cloud and the Gmail SPF/DKIM/DMARC rows
+        are part of the PENDING OAuth checklist at the top of this file.
+- [ ] Full PDF verification matrix — locally verifiable rows are covered by
+      the suite ([OK] line, MailJob counts, phone/desktop rendering).
+      Gmail-server rows (Sent folder, inbox + Spam with SPF/DKIM/DMARC
+      `PASS`, 3 test addresses all `sent`) require completed OAuth setup.
+- **Exit:** suite 58/58 green; `manage.py check` clean; `check --deploy`
+  reduced to the four HTTPS warnings; doc updated (this section).
 
 **Total estimate: ~6–8 working days.** Phases 1–3 are safely parallelizable in pairs (models → form/backend vs. UI).
 

@@ -33,7 +33,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes'}
 
-ALLOWED_HOSTS = []
+# In dev (DEBUG=True) an empty list is fine - localhost is allowed implicitly.
+# In production set DJANGO_ALLOWED_HOSTS in .env, comma-separated:
+#   DJANGO_ALLOWED_HOSTS=sparc.example.com,www.sparc.example.com
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -131,6 +138,10 @@ STATIC_URL = 'static/'
 # Project-level static assets (CSS/JS shared across apps).
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# Where collectstatic copies everything for production serving (nginx or
+# a whitenoise-style middleware). Not used by the dev server.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # User-uploaded media: the club logo and ambassador photos. The photo
 # upload_to is 'ambassador_photos/', which matches the .gitignore rule that
 # keeps SPARC26LogoMin.png but ignores media_files/ambassador_photos/.
@@ -186,8 +197,16 @@ LOGGING = {
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Django's own email backend is NOT part of this project's mail pipeline -
+# all mail goes through the Gmail API in emails/sender.py. The console
+# backend below is a dev-only offline fallback from the original skeleton.
+# It is intentionally absent when DEBUG=False: production then has no
+# MAILERS entry, which keeps `manage.py check --deploy` clean (Django's
+# mail.E001 check correctly refuses dev-only backends in production). If a
+# production server ever needs Django's email backend, add an SMTP entry.
+if DEBUG:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        },
+    }

@@ -11,6 +11,9 @@ db.sqlite3
 media_files/ambassador_photos/
 */media_files/ambassador_photos/
 
+# Generated static files (collectstatic output for production)
+staticfiles/
+
 # Python bytecode & cache
 __pycache__/
 *.py[cod]
