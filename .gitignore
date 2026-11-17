@@ -36,3 +36,5 @@ ENV/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+DJANGO_LEARNING_GUIDE.md
