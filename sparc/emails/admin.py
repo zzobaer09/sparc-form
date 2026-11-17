@@ -1,7 +1,8 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 
 from .models import MailJob
+from .sender import build_service, process_job
 
 
 @admin.register(MailJob)
@@ -32,13 +33,28 @@ class MailJobAdmin(admin.ModelAdmin):
             '<b style="color:{}">{}</b>', colors.get(obj.status, '#57606a'), obj.status)
 
     @admin.action(
-        description='Retry selected: reset Failed jobs to Pending '
-                    '(send_pending will pick them up)')
+        description='Send now: process Pending/Failed jobs via the Gmail API')
     def retry_selected(self, request, queryset):
-        # Never touch SENT jobs - the PDF rule is "never send twice".
-        updated = queryset.filter(status=MailJob.FAILED).update(
-            status=MailJob.PENDING, error='')
-        if updated:
-            self.message_user(request, f'{updated} failed job(s) reset to Pending.')
+        """Manual retry from the admin: build one service, then run each
+        selected job through process_job (which skips already-sent jobs)."""
+        try:
+            service = build_service()
+        except RuntimeError as exc:
+            self.message_user(
+                request, f'Cannot send now: {exc}', level=messages.ERROR)
+            return
+
+        sent = failed = 0
+        for job in queryset.exclude(status=MailJob.SENT).order_by('pk'):
+            result = process_job(job.id, service)
+            if result.status == MailJob.SENT:
+                sent += 1
+            else:
+                failed += 1
+        if sent or failed:
+            self.message_user(
+                request, f'Send now finished: {sent} sent, {failed} failed.')
         else:
-            self.message_user(request, 'No failed jobs in selection - nothing reset.')
+            self.message_user(
+                request, 'Nothing to send - selection contains only '
+                         'already-sent jobs.')

@@ -8,6 +8,7 @@ Faithful to the PDF's code. The flow:
                 -> build_service() get_credentials() from emails.views
 """
 import base64
+import logging
 from email.message import EmailMessage
 
 from django.conf import settings
@@ -19,6 +20,8 @@ from googleapiclient.discovery import build
 
 from .models import MailJob
 from .views import get_credentials
+
+logger = logging.getLogger(__name__)
 
 SUBJECT = 'SPARC 2026 - Ambassador Application Received'
 
@@ -55,11 +58,11 @@ def process_job(job_id, service=None):
         job.gmail_message_id = send_mail(
             service or build_service(), job.to_email, a.name)
         job.status, job.error, job.sent_at = MailJob.SENT, '', timezone.now()
-        print(f'[OK] ID={a.id} Name={a.name} Email={job.to_email} '
-              f'MsgId={job.gmail_message_id}', flush=True)
+        logger.info(f'[OK] ID={a.id} Name={a.name} Email={job.to_email} '
+                    f'MsgId={job.gmail_message_id}')
     except Exception as exc:
         job.status, job.error = MailJob.FAILED, str(exc)[:500]
-        print(f'[FAIL] ID={a.id} Name={a.name} Reason={job.error}', flush=True)
+        logger.error(f'[FAIL] ID={a.id} Name={a.name} Reason={job.error}')
     job.save()
     return job
 

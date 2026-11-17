@@ -9,6 +9,7 @@ get_credentials() is the piece emails/sender.py reuses on every send.
 Tokens live in .env (GOOGLE_CLOUD_TOKEN, GOOGLE_CLOUD_REFRESH_TOKEN) -
 never committed, exactly as the PDF requires.
 """
+import logging
 import os
 
 from django.conf import settings
@@ -20,6 +21,8 @@ from dotenv import set_key
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
+
+logger = logging.getLogger(__name__)
 
 # Same .env file that settings.py loads at startup.
 ENV_FILE = str(settings.BASE_DIR / '.env')
@@ -87,6 +90,8 @@ def get_credentials():
 
     refresh_token = os.environ.get('GOOGLE_CLOUD_REFRESH_TOKEN')
     if not refresh_token:
+        logger.info('get_credentials: no refresh token in .env - '
+                    'open /init/authorise/ as a superuser')
         return None  # never authorised (or .env was recreated)
 
     creds = Credentials(
@@ -102,7 +107,9 @@ def get_credentials():
         # (expiry is unknown after a server restart - refresh to be safe).
         if not creds.valid or creds.expiry is None:
             creds.refresh(Request())
-    except Exception:
+    except Exception as exc:
+        logger.warning('get_credentials: token refresh failed (%s) - '
+                       're-authorisation needed', type(exc).__name__)
         return None
 
     if creds.token != os.environ.get('GOOGLE_CLOUD_TOKEN'):
@@ -128,6 +135,7 @@ def authorise(request):
         prompt='consent',        # always return a refresh token, even on re-auth
     )
     request.session['oauth_state'] = state
+    logger.info('OAuth authorisation flow started (user %s)', request.user)
     return redirect(url)
 
 
@@ -140,6 +148,7 @@ def oauth2callback(request):
             'State mismatch - open /init/authorise/ again.', status=400)
 
     if request.GET.get('error'):
+        logger.warning('OAuth authorisation failed: %s', request.GET['error'])
         return _render_result(
             request,
             'error',
@@ -154,6 +163,7 @@ def oauth2callback(request):
     try:
         flow.fetch_token(code=request.GET.get('code'))
     except Exception as exc:
+        logger.warning('OAuth token exchange failed: %s', exc)
         return _render_result(
             request,
             'error', f'Token exchange failed: {exc}',

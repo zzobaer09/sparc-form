@@ -158,6 +158,31 @@ GOOGLE_MAIL_API_VERSION = os.environ.get('GOOGLE_MAIL_API_VERSION', 'v1')
 GOOGLE_CLOUD_TOKEN = os.environ.get('GOOGLE_CLOUD_TOKEN', '')
 GOOGLE_CLOUD_REFRESH_TOKEN = os.environ.get('GOOGLE_CLOUD_REFRESH_TOKEN', '')
 
+# Logging: the emails app reports sends/failures/authorisation events to the
+# console (the [OK]/[FAIL] lines the PDF's verification checklist looks for).
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
+    'loggers': {
+        'emails': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 

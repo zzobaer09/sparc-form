@@ -346,11 +346,21 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [ ] Hook in `registration.views`: `MailJob.objects.get_or_create(campaign="ambassador_received", …)` → `transaction.on_commit` → daemon `Thread(process_job_in_thread)`.
 - **Exit:** OAuth round-trip fills tokens in `.env`; a real submit prints `[OK] … MsgId=…`; `MailJob` status `sent`; Gmail Sent folder shows the mail; logo + text render on phone and desktop.
 
-### Phase 5 — Retry & operations *(~0.5–1 day)*
-- [ ] `emails/management/commands/send_pending.py` per the PDF: `--from-id`, processes pending+failed ordered by ambassador_id, shared service, `sleep(3)`, prints summary + restart hint on failures.
-- [ ] Logging (`loggers` for sender/OAuth), docstring/help text for the command.
-- [ ] Admin MailJob action delegating to `process_job` (single-job manual retry).
-- **Exit:** forced-failure test (bad client secret) → form still succeeds, job `failed` with readable reason; fixing the secret + `send_pending` sends only the failed one; second run reports nothing to send.
+### Phase 5 — Retry & operations *(~0.5–1 day)* ✅ done (local verification, mocked Gmail)
+
+> Note: the forced-failure test ran against a mocked Gmail service (no Google
+> credentials yet). The **real**-Gmail forced-failure test (bad client secret,
+> exactly as the PDF prescribes) belongs to the PENDING OAuth checklist above —
+> do it immediately after authorising. Two small, deliberate deviations from
+> the PDF's code: `print()` became `logging` calls with the identical
+> `[OK]`/`[FAIL]` line format (routed to the console by a `LOGGING` config),
+> and `send_pending` exits cleanly with readable messages ("Nothing to send",
+> or a re-authorisation hint on stderr) instead of crashing when there are no
+> jobs or no tokens.
+- [x] `emails/management/commands/send_pending.py` per the PDF: `--from-id`, processes pending+failed ordered by ambassador_id, shared service, `sleep(3)`, prints summary + restart hint on failures.
+- [x] Logging (`loggers` for sender/OAuth), docstring/help text for the command.
+- [x] Admin MailJob action delegating to `process_job` (single-job manual retry).
+- **Exit:** forced-failure test (mocked Gmail) → job `failed` with readable reason; "fixing the secret" + `send_pending` sends only the failed one; second run reports nothing to send. Unauthorised run: friendly stderr, jobs untouched. `[OK]`/`[FAIL]` captured via the `emails` logger. Admin "Send now" action verified (POST → job sent).
 
 ### Phase 6 — QA, tests & hardening *(~1 day)*
 - [ ] Full PDF verification matrix: `[OK]` line, MailJob counts, Gmail Sent folder, inbox + Spam with SPF/DKIM/DMARC `PASS`, phone + desktop rendering, 3 test addresses all `sent`.
