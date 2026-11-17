@@ -104,6 +104,25 @@ def strip_oauth_env():
     })
 
 
+def parse_mail(raw):
+    """Decode a base64 'raw' Gmail body and split out its main parts.
+
+    Returns (parsed_message, text_part, html_part, logo_part) with any of
+    the three parts possibly None; works for any MIME nesting.
+    """
+    parsed = message_from_bytes(base64.urlsafe_b64decode(raw))
+    text_part = html_part = logo_part = None
+    for part in parsed.walk():
+        ctype = part.get_content_type()
+        if ctype == 'text/plain' and text_part is None:
+            text_part = part
+        elif ctype == 'text/html' and html_part is None:
+            html_part = part
+        elif ctype == 'image/png':
+            logo_part = part
+    return parsed, text_part, html_part, logo_part
+
+
 class StaffLoginMixin(TestCase):
     def setUp(self):
         super().setUp()
@@ -162,19 +181,34 @@ class SenderTests(TestCase):
         self.assertEqual(len(service.bodies), 1)
 
         raw = service.bodies[0]['raw']
-        parsed = message_from_bytes(base64.urlsafe_b64decode(raw))
+        parsed, text_part, html_part, logo_part = parse_mail(raw)
         self.assertEqual(parsed['Subject'], SUBJECT)
         self.assertEqual(parsed['From'], 'Test Sender <test@example.com>')
         self.assertEqual(parsed['To'], 'recipient@example.com')
         self.assertTrue(parsed.is_multipart())
-
-        parts = {part.get_content_type(): part for part in parsed.get_payload()}
-        text = parts['text/plain'].get_payload(decode=True).decode()
-        html = parts['text/html'].get_payload(decode=True).decode()
+        text = text_part.get_payload(decode=True).decode()
+        html = html_part.get_payload(decode=True).decode()
         self.assertIn('Dear Alice', text)
         self.assertIn('Alice', html)
-        # Logo is an absolute URL built from SITE_URL (works on phone+desktop).
-        self.assertIn('http://testsite/media_files/SPARC26LogoMin.png', html)
+        # Plain text+html pair; the blue header is a text banner, so the
+        # mail carries no image part at all (email-client-safe).
+        self.assertEqual(parsed.get_content_type(), 'multipart/alternative')
+        self.assertIsNone(logo_part)
+        # The header shows the branch name, large and white on the blue bg.
+        self.assertIn('IEEE NSU SB', html)
+        self.assertIn('color:#ffffff', html)
+
+    @override_settings(MAIL_SENDER='Test Sender <test@example.com>',
+                       SITE_URL='http://testsite')
+    def test_send_mail_escapes_html_in_name(self):
+        service = FakeService()
+        malicious_name = '<script>alert("hack")</script>'
+        send_mail(service, 'recipient@example.com', malicious_name)
+        raw = service.bodies[0]['raw']
+        parsed, text_part, html_part, logo_part = parse_mail(raw)
+        html = html_part.get_payload(decode=True).decode()
+        self.assertNotIn('<script>', html)
+        self.assertIn('&lt;script&gt;alert(&quot;hack&quot;)&lt;/script&gt;', html)
 
     def test_send_mail_rejects_invalid_recipient(self):
         with self.assertRaises(ValidationError):

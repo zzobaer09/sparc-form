@@ -368,6 +368,19 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 > does **not** strip multi-line `{# #}` comments (only `{% comment %}` works),
 > so the raw comment leaked into every rendered page since Phase 2. Fixed and
 > guarded by the rendering test.
+> Second QA catch (first real-Gmail round): the mail's logo referenced
+> `{SITE_URL}/media_files/SPARC26LogoMin.png`, which webmail clients can
+> never load (Gmail fetches remote images through its own servers — a
+> `localhost` URL is unreachable there), and the mail template's leading
+> three-line `{# … #}` comment leaked into the mail body. Fixed the comment
+> with `{% comment %}`. For the header, the placeholder logo was first
+> embedded via CID, then **replaced at the user's request** with a large
+> white **"IEEE NSU SB"** text banner on the blue header — the
+> email-client-safest option, since the mail now carries no remote image
+> at all. This supersedes the PDF's "logo on top": if the club later
+> supplies the real logo asset, restore an `<img>` in the header (with a
+> public SITE_URL a plain URL works; in dev embed via CID — the recipe is
+> in the git history of `emails/sender.py`).
 - [x] Automated tests — **58 tests, all green** (`venv/bin/python manage.py test`):
       - `registration/tests.py` (25): model constraints (unique email,
         `one_mail_per_campaign`, CASCADE delete, MailJob defaults); every form

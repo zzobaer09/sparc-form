@@ -37,13 +37,12 @@ def build_service():
 
 def send_mail(service, to, name):
     validate_email(to)
-    ctx = {'name': name,
-           'logo_url': f'{settings.SITE_URL}/media_files/SPARC26LogoMin.png'}
     msg = EmailMessage()
     msg['From'], msg['To'], msg['Subject'] = settings.MAIL_SENDER, to, SUBJECT
-    msg.set_content(render_to_string('ambassador_received.txt', ctx))
-    msg.add_alternative(render_to_string('ambassador_received.html', ctx),
-                        subtype='html')
+    msg.set_content(render_to_string('ambassador_received.txt', {'name': name}))
+    msg.add_alternative(
+        render_to_string('ambassador_received.html', {'name': name}),
+        subtype='html')
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     return service.users().messages().send(
         userId='me', body={'raw': raw}).execute()['id']
