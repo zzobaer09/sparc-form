@@ -376,6 +376,8 @@ class OAuthViewTests(StaffLoginMixin):
         self.assertEqual(query['access_type'], ['offline'])
         self.assertEqual(query['prompt'], ['consent'])
         self.assertIn('oauth_state', self.client.session)
+        # The PKCE verifier must be stashed for the callback to restore.
+        self.assertTrue(self.client.session.get('oauth_verifier'))
 
     def test_callback_without_state_is_rejected(self):
         response = self.client.get('/init/oauth2callback')
@@ -421,6 +423,7 @@ class OAuthViewTests(StaffLoginMixin):
              mock.patch.object(emails.views, '_persist_token') as persist:
             session = self.client.session
             session['oauth_state'] = 'expected'
+            session['oauth_verifier'] = 'pkce-verifier-123'
             session.save()
             response = self.client.get(
                 '/init/oauth2callback',
@@ -429,6 +432,8 @@ class OAuthViewTests(StaffLoginMixin):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'now filled in .env')
         fake_flow.fetch_token.assert_called_once_with(code='auth-code-1')
+        # The verifier stashed at /init/authorise/ was restored onto the flow.
+        self.assertEqual(fake_flow.code_verifier, 'pkce-verifier-123')
         persist.assert_any_call('GOOGLE_CLOUD_TOKEN', 'tok-123')
         persist.assert_any_call('GOOGLE_CLOUD_REFRESH_TOKEN', 'rtok-123')
 

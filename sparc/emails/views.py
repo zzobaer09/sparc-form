@@ -135,6 +135,13 @@ def authorise(request):
         prompt='consent',        # always return a refresh token, even on re-auth
     )
     request.session['oauth_state'] = state
+    # PKCE: building the consent URL generates a code_verifier (Google's
+    # library does this by default) and Google requires the SAME verifier
+    # back at token exchange. The Flow object is discarded between the two
+    # requests, so the verifier must survive in the session, next to state.
+    verifier = getattr(flow, 'code_verifier', None)
+    if verifier:
+        request.session['oauth_verifier'] = verifier
     logger.info('OAuth authorisation flow started (user %s)', request.user)
     return redirect(url)
 
@@ -160,6 +167,12 @@ def oauth2callback(request):
         return _render_result(request, 'error', 'Client credentials missing in .env.', '')
 
     flow = _build_flow()
+    # Restore the PKCE verifier created during /init/authorise/ - without it
+    # Google rejects the token exchange with "invalid_grant: Missing code
+    # verifier" (see the comment there).
+    verifier = request.session.pop('oauth_verifier', None)
+    if verifier:
+        flow.code_verifier = verifier
     try:
         flow.fetch_token(code=request.GET.get('code'))
     except Exception as exc:
