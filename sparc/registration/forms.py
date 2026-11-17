@@ -27,6 +27,13 @@ AGREEMENT_FIELDS = (
     'agree_contact_consent',
 )
 
+# Shown when an application with the same e-mail already exists - used by
+# clean_email AND by the view when the unique index wins the race against
+# a concurrent submit (one string, one behaviour).
+DUPLICATE_EMAIL_MSG = (
+    'An application with this email address already exists. '
+    'All updates will be sent to the original address.')
+
 
 class AmbassadorForm(forms.ModelForm):
     """The SPARC Ambassador application form.
@@ -108,9 +115,7 @@ class AmbassadorForm(forms.ModelForm):
         """
         email = (self.cleaned_data.get('email') or '').strip().lower()
         if email and Ambassador.objects.filter(email__iexact=email).exists():
-            raise ValidationError(
-                'An application with this email address already exists. '
-                'All updates will be sent to the original address.')
+            raise ValidationError(DUPLICATE_EMAIL_MSG)
         return email
 
     def clean_whatsapp(self):

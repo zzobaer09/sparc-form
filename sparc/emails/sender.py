@@ -49,9 +49,29 @@ def send_mail(service, to, name):
 
 
 def process_job(job_id, service=None):
-    job = MailJob.objects.select_related('ambassador').get(pk=job_id)
-    if job.status == MailJob.SENT:
-        return job  # never send twice
+    try:
+        job = MailJob.objects.select_related('ambassador').get(pk=job_id)
+    except MailJob.DoesNotExist:
+        # The ambassador (and its cascaded job) was deleted between
+        # queueing and processing - a normal event, never a crash.
+        logger.warning('[SKIP] MailJob %s vanished (deleted?)', job_id)
+        return None
+
+    # Atomic claim: a single conditional UPDATE means exactly one processor
+    # (view thread / send_pending / admin action) can win. Losers update
+    # zero rows and never reach the Gmail API - no double sends.
+    claimed = MailJob.objects.filter(
+        pk=job.pk,
+        status__in=[MailJob.PENDING, MailJob.SENDING, MailJob.FAILED],
+    ).update(status=MailJob.SENDING)
+    if not claimed:
+        return job  # already SENT - never send twice
+
+    if job.status == MailJob.SENDING:
+        # A previous claimant died mid-send; take the job over.
+        logger.warning('[RETRY] MailJob %s stuck in sending - taking over',
+                       job.pk)
+
     a = job.ambassador
     try:
         job.gmail_message_id = send_mail(
@@ -69,5 +89,10 @@ def process_job(job_id, service=None):
 def process_job_in_thread(job_id):
     try:
         process_job(job_id)
+    except Exception:
+        # job.save() itself can fail (e.g. locked DB); the row stays
+        # 'sending' and is reclaimed later. Log it here instead of
+        # leaking a traceback through threading's default handler.
+        logger.exception('[FAIL] job %s crashed the sender thread', job_id)
     finally:
         connection.close()

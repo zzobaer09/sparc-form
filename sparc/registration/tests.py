@@ -15,9 +15,11 @@ import shutil
 import tempfile
 from io import BytesIO
 from pathlib import Path
+from unittest import mock
 
 from django.contrib import admin as django_admin
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
@@ -291,6 +293,10 @@ class FormTests(TestCase):
 class ViewTests(MediaRootMixin, TestCase):
     AJAX = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}
 
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
     def test_get_renders_form_page(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
@@ -344,6 +350,30 @@ class ViewTests(MediaRootMixin, TestCase):
         self.assertEqual(Ambassador.objects.count(), 1)
         self.assertEqual(MailJob.objects.count(), 0)
 
+    def test_post_duplicate_email_race_is_friendly(self):
+        """Row inserted between validation and save (concurrent winner):
+        the loser must see the friendly duplicate message, never a 500.
+
+        The simulated winner is inserted inside the view's own atomic
+        block, so the IntegrityError rollback removes it again - in a
+        real race the winner commits in a separate transaction and
+        survives. Hence only the response contract is asserted here.
+        """
+        original_save = AmbassadorForm.save
+
+        def racing_save(form_self):
+            make_ambassador(email='applicant@example.com')  # the "winner"
+            return original_save(form_self)
+
+        with mock.patch.object(AmbassadorForm, 'save', racing_save):
+            response = self.client.post('/', full_post_payload(), **self.AJAX)
+
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertIn('email', data['errors'])
+        self.assertIn('already exists', data['errors']['email'][0])
+        self.assertEqual(MailJob.objects.count(), 0)
+
     def test_post_invalid_ajax_returns_field_errors(self):
         response = self.client.post('/', {}, **self.AJAX)
         self.assertEqual(response.status_code, 400)
@@ -364,6 +394,29 @@ class ViewTests(MediaRootMixin, TestCase):
         response = self.client.get('/thanks/')
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'registration/thanks.html')
+
+    def test_post_rate_limiting_ajax(self):
+        with override_settings(RATE_LIMIT_APPLY_PER_HOUR=2):
+            r1 = self.client.post('/', {}, **self.AJAX)
+            self.assertEqual(r1.status_code, 400)
+            r2 = self.client.post('/', {}, **self.AJAX)
+            self.assertEqual(r2.status_code, 400)
+            # 3rd request should be blocked with 429
+            r3 = self.client.post('/', {}, **self.AJAX)
+            self.assertEqual(r3.status_code, 429)
+            data = json.loads(r3.content)
+            self.assertFalse(data['success'])
+            self.assertIn('__all__', data['errors'])
+            self.assertIn('Too many submissions', data['errors']['__all__'][0])
+
+    def test_post_rate_limiting_non_ajax(self):
+        with override_settings(RATE_LIMIT_APPLY_PER_HOUR=1):
+            r1 = self.client.post('/', {})
+            self.assertEqual(r1.status_code, 200)
+            # 2nd request should be blocked with 429
+            r2 = self.client.post('/', {})
+            self.assertEqual(r2.status_code, 429)
+            self.assertContains(r2, 'Too many submissions', status_code=429)
 
 
 # ----------------------------------------------------------------------

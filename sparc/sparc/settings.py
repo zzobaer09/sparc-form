@@ -30,6 +30,13 @@ load_dotenv(BASE_DIR / '.env')
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
 
+# Fail fast with instructions instead of a cryptic signing error deep
+# inside session/CSRF handling later.
+if not SECRET_KEY:
+    raise RuntimeError(
+        'DJANGO_SECRET_KEY is not set. Copy .env.example to .env and fill '
+        'it in (the key-generation command is in that file).')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes'}
 
@@ -41,6 +48,28 @@ ALLOWED_HOSTS = [
     for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
     if host.strip()
 ]
+
+# Default Clickjacking protection for all modes
+X_FRAME_OPTIONS = 'DENY'
+
+# --- Production hardening (opt-in) ---------------------------------------
+# Set DJANGO_SECURE=1 in .env on the live server only. While unset, dev
+# behaviour is byte-identical; rollback is simply unsetting DJANGO_SECURE.
+if os.environ.get('DJANGO_SECURE', '').strip().lower() in {'1', 'true', 'yes'}:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+    # Safe only behind a proxy that always sets X-Forwarded-Proto.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
+
+# Rate limiting for public form submissions (submissions per hour per IP)
+RATE_LIMIT_APPLY_PER_HOUR = int(os.environ.get('RATE_LIMIT_APPLY_PER_HOUR', '30'))
 
 
 # Application definition

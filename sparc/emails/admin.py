@@ -28,6 +28,7 @@ class MailJobAdmin(admin.ModelAdmin):
             MailJob.SENT: '#1a7f37',
             MailJob.FAILED: '#cf222e',
             MailJob.PENDING: '#9a6700',
+            MailJob.SENDING: '#0969da',
         }
         return format_html(
             '<b style="color:{}">{}</b>', colors.get(obj.status, '#57606a'), obj.status)
@@ -47,6 +48,8 @@ class MailJobAdmin(admin.ModelAdmin):
         sent = failed = 0
         for job in queryset.exclude(status=MailJob.SENT).order_by('pk'):
             result = process_job(job.id, service)
+            if result is None:
+                continue                # job row vanished mid-run
             if result.status == MailJob.SENT:
                 sent += 1
             else:

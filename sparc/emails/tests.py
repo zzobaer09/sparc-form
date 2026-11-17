@@ -17,6 +17,7 @@ import base64
 import itertools
 import logging
 import os
+import tempfile
 from email import message_from_bytes
 from types import SimpleNamespace
 from unittest import mock
@@ -164,6 +165,23 @@ class SenderTests(TestCase):
         self.assertEqual(result.status, MailJob.FAILED)
         self.assertEqual(result.error, 'simulated Gmail outage')
         self.assertEqual(result.gmail_message_id, '')
+
+    def test_second_processor_never_double_sends(self):
+        amb = make_ambassador(name='Claim Race')
+        job = make_job(amb)
+        s1, s2 = FakeService(), FakeService()
+        first = process_job(job.id, s1)
+        second = process_job(job.id, s2)   # job already SENT: claims nothing
+        self.assertEqual(first.status, MailJob.SENT)
+        self.assertEqual(second.status, MailJob.SENT)
+        self.assertEqual(len(s1.bodies), 1)
+        self.assertEqual(len(s2.bodies), 0)
+
+    def test_process_job_survives_vanished_job(self):
+        amb = make_ambassador(name='Vanish')
+        job = make_job(amb)
+        job.delete()
+        self.assertIsNone(process_job(job.id, FakeService()))
 
     def test_process_job_truncates_error_to_500_chars(self):
         amb = make_ambassador(name='Sender Four')
@@ -367,6 +385,20 @@ class SendPendingCommandTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, MailJob.PENDING)  # untouched, no crash
 
+    def test_send_pending_skips_job_deleted_mid_run(self):
+        amb = make_ambassador(name='Cmd Vanish')
+        job = make_job(amb)
+        service = FakeService()
+
+        def build_and_delete(*args, **kwargs):
+            job.delete()   # row vanishes after listing, before the send
+            return service
+
+        with mock.patch.object(send_pending_cmd, 'build_service',
+                               side_effect=build_and_delete):
+            out, _ = self.run_command()
+        self.assertIn('Done. Sent: 0 Failed: []', out)
+
 
 # ----------------------------------------------------------------------
 # OAuth views
@@ -424,6 +456,19 @@ class OAuthViewTests(StaffLoginMixin):
         response = self.client.get(
             '/init/oauth2callback', {'state': 'forged', 'code': 'x'})
         self.assertEqual(response.status_code, 400)
+        self.assertTemplateUsed(response, 'emails/authorise_result.html')
+        self.assertContains(response, 'State mismatch', status_code=400)
+
+    def test_callback_with_expired_state_is_rejected(self):
+        session = self.client.session
+        # 1000 seconds ago > 600s timeout
+        session['oauth_state'] = {'state': 'expected', 'created_at': 100}
+        session.save()
+        response = self.client.get(
+            '/init/oauth2callback', {'state': 'expected', 'code': 'x'})
+        self.assertEqual(response.status_code, 400)
+        self.assertTemplateUsed(response, 'emails/authorise_result.html')
+        self.assertContains(response, 'expired', status_code=400)
 
     def test_callback_reports_google_error(self):
         session = self.client.session
@@ -537,6 +582,16 @@ class GetCredentialsTests(TestCase):
         emails.views._cached_credentials = sentinel
         self.addCleanup(setattr, emails.views, '_cached_credentials', None)
         self.assertIs(get_credentials(), sentinel)
+
+    def test_persist_token_tightens_env_permissions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = os.path.join(tmp, '.env')
+            with open(env_file, 'w') as fh:
+                fh.write('GOOGLE_CLOUD_TOKEN=\n')
+            with mock.patch.dict(os.environ, {}):
+                emails.views._persist_token(
+                    'GOOGLE_CLOUD_TOKEN', 'tok', env_file)
+            self.assertEqual(os.stat(env_file).st_mode & 0o777, 0o600)
 
 
 # ----------------------------------------------------------------------

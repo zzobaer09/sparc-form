@@ -139,7 +139,13 @@
     for (var name in errors) {
       if (!Object.prototype.hasOwnProperty.call(errors, name)) continue;
       var host = form.querySelector('[data-field="' + name + '"]');
-      if (!host) continue;
+      if (!host) {
+        if (name === '__all__') {
+          host = form.querySelector('.submit-row') || form;
+        } else {
+          continue;
+        }
+      }
       var ul = document.createElement('ul');
       ul.className = 'errorlist';
       for (var j = 0; j < errors[name].length; j++) {

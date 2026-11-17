@@ -5,14 +5,16 @@ class MailJob(models.Model):
     """One outgoing email tied to one ambassador for one campaign.
 
     Fields and the one_mail_per_campaign constraint are taken verbatim from
-    the PDF spec. Lifecycle: pending -> sent (gmail_message_id filled in)
-    or failed (error filled in). A failed job never loses the application;
-    the send_pending command (Phase 5) re-sends pending and failed jobs.
+    the PDF spec. Lifecycle: pending -> sending (claimed by exactly one
+    processor) -> sent (gmail_message_id filled in) or failed (error filled
+    in). A failed job never loses the application; the send_pending command
+    (Phase 5) re-sends pending, stuck-sending and failed jobs.
     """
 
-    PENDING, SENT, FAILED = 'pending', 'sent', 'failed'
+    PENDING, SENDING, SENT, FAILED = 'pending', 'sending', 'sent', 'failed'
     STATUS_CHOICES = [
         (PENDING, 'Pending'),
+        (SENDING, 'Sending'),
         (SENT, 'Sent'),
         (FAILED, 'Failed'),
     ]
