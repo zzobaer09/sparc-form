@@ -1,9 +1,13 @@
-from django.http import HttpResponse
+from django.shortcuts import render
+
+from .forms import AmbassadorForm
 
 
-def home(request):
-    """Phase 0 stub view so the root URL responds while runserver is checked.
+def ambassador_apply(request):
+    """Show the SPARC Ambassador application form.
 
-    Replaced by the real ambassador application form in Phase 2/3.
+    Phase 2 scope: render the empty form on GET. Phase 3 adds the POST
+    handling: validate with AmbassadorForm -> Ambassador.objects.create ->
+    MailJob creation -> JsonResponse (AJAX) / thanks page (non-JS).
     """
-    return HttpResponse("SPARC 2026 - Ambassador Application. The form arrives in Phase 2/3.")
+    return render(request, 'registration/apply.html', {'form': AmbassadorForm()})

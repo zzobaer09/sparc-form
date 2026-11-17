@@ -128,6 +128,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Project-level static assets (CSS/JS shared across apps).
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
 # User-uploaded media: the club logo and ambassador photos. The photo
 # upload_to is 'ambassador_photos/', which matches the .gitignore rule that
 # keeps SPARC26LogoMin.png but ignores media_files/ambassador_photos/.

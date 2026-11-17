@@ -293,7 +293,12 @@ The URL wiring (`registration` at `''`) already exists from Phase 0 — only the
 - [ ] Admin: `AmbassadorAdmin` (search by name/email/university, filters year/gender/IEEE/year-joined, photo thumbnail, sectioned fieldsets), `MailJobAdmin` (list status/gmail_message_id/sent_at, read-only error box, filters by status/campaign, action "retry selected").
 - **Exit:** `migrate` clean; both models editable in admin; unique constraint enforced; duplicate `(campaign, ambassador)` rejected.
 
-### Phase 2 — Form UI *(~1–2 days)*
+### Phase 2 — Form UI *(~1–2 days)* ✅ done
+
+> Note: `forms.py` was started here (fields/widgets/labels only — no validation
+> logic) so the template renders straight from a real Django form. Phase 3 adds
+> only the `clean_*` validators and the POST save logic. The Phase 0 stub view
+> was swapped for the real `ambassador_apply` GET renderer in this phase.
 - [ ] `base.html` + `static/css/form.css` (SPARC-branded, responsive, mobile-friendly).
 - [ ] `apply.html`: intro text, 4 sections (Personal / University / IEEE / Photo+Bio) + About + Agreement, numbered like the spec; photo guide banner above the upload; required markers.
 - [ ] `static/js/form.js`: show/hide IEEE block on Yes/No; live 50-word bio counter (block submit over limit); client-side file type/size pre-check (JPG/PNG ≤ 10 MB); `fetch()` submit with loading state; render the exact confirmation message from the spec on success.

@@ -1,0 +1,28 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SPARC 2026{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/form.css' %}">
+</head>
+<body>
+
+<header class="site-head">
+  <img class="brand-logo" src="/media_files/SPARC26LogoMin.png" alt="SPARC 2026 logo">
+  <div class="brand-text">
+    <strong>SPARC 2026</strong>
+    <span>IEEE NSU Student Branch</span>
+  </div>
+</header>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-foot">SPARC 2026 &middot; Ambassador Form and Email</footer>
+
+<script src="{% static 'js/form.js' %}" defer></script>
+</body>
+</html>

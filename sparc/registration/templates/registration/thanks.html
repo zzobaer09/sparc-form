@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Application received · SPARC 2026{% endblock %}
+
+{% block content %}
+<div class="page">
+  {# Non-JavaScript fallback: the same confirmation message, rendered server-side. #}
+  <div class="confirmation">
+    {% include "registration/_confirmation.html" %}
+  </div>
+  <p class="back-link"><a href="/">Back to the application form</a></p>
+</div>
+{% endblock %}
