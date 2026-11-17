@@ -34,7 +34,7 @@ class Command(BaseCommand):
         from_id = options['from_id']
         jobs = list(MailJob.objects.filter(
             ambassador_id__gte=from_id,
-            status__in=[MailJob.PENDING, MailJob.FAILED],
+            status__in=[MailJob.PENDING, MailJob.SENDING, MailJob.FAILED],
         ).order_by('ambassador_id'))
 
         if not jobs:
@@ -50,12 +50,18 @@ class Command(BaseCommand):
             return
 
         failed = []
+        sent = 0
         for job in jobs:
-            if process_job(job.id, service).status != MailJob.SENT:
+            result = process_job(job.id, service)
+            if result is None:
+                pass                    # job row vanished - nothing to send
+            elif result.status == MailJob.SENT:
+                sent += 1
+            else:
                 failed.append(job.ambassador_id)
             sleep(3)
 
-        self.stdout.write(f'Done. Sent: {len(jobs) - len(failed)} Failed: {failed}')
+        self.stdout.write(f'Done. Sent: {sent} Failed: {failed}')
         if failed:
             self.stdout.write(
                 f'Restart: python manage.py send_pending --from-id {failed[0]}')

@@ -1,13 +1,16 @@
 from threading import Thread
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from emails.models import MailJob
 from emails.sender import process_job_in_thread
 
-from .forms import AmbassadorForm
+from .forms import AmbassadorForm, DUPLICATE_EMAIL_MSG
+from .ratelimit import is_rate_limited
+
+RATE_LIMIT_MSG = 'Too many submissions from this IP address. Please wait before trying again.'
 
 
 def _is_ajax(request):
@@ -35,23 +38,46 @@ def ambassador_apply(request):
             re-rendered with field errors.
     """
     if request.method == 'POST':
+        if is_rate_limited(request, action='ambassador_apply'):
+            if _is_ajax(request):
+                return JsonResponse({
+                    'success': False,
+                    'message': RATE_LIMIT_MSG,
+                    'errors': {'__all__': [RATE_LIMIT_MSG]},
+                }, status=429)
+            form = AmbassadorForm(request.POST, request.FILES)
+            form.add_error(None, RATE_LIMIT_MSG)
+            return render(request, 'registration/apply.html', {'form': form}, status=429)
+
         form = AmbassadorForm(request.POST, request.FILES)
 
         if form.is_valid():
-            with transaction.atomic():
-                ambassador = form.save()
+            try:
+                with transaction.atomic():
+                    ambassador = form.save()
 
-                # PDF step 3: create the mail job (pending) first, then a
-                # background thread sends it only AFTER the DB commit, so
-                # the thread never reads an unpersisted row and the form
-                # answers at once either way.
-                job, _ = MailJob.objects.get_or_create(
-                    campaign='ambassador_received',
-                    ambassador=ambassador,
-                    defaults={'to_email': ambassador.email})
-                transaction.on_commit(lambda: Thread(
-                    target=process_job_in_thread, args=(job.id,),
-                    daemon=True).start())
+                    # PDF step 3: create the mail job (pending) first, then a
+                    # background thread sends it only AFTER the DB commit, so
+                    # the thread never reads an unpersisted row and the form
+                    # answers at once either way.
+                    job, _ = MailJob.objects.get_or_create(
+                        campaign='ambassador_received',
+                        ambassador=ambassador,
+                        defaults={'to_email': ambassador.email})
+                    transaction.on_commit(lambda: Thread(
+                        target=process_job_in_thread, args=(job.id,),
+                        daemon=True).start())
+            except IntegrityError:
+                # A concurrent request inserted the same e-mail between
+                # validation and save(). Same friendly outcome as the
+                # pre-validation duplicate check - never a 500.
+                form.add_error('email', DUPLICATE_EMAIL_MSG)
+                if _is_ajax(request):
+                    return JsonResponse({'success': False,
+                                         'errors': _errors_for_json(form)},
+                                        status=400)
+                return render(request, 'registration/apply.html',
+                              {'form': form})
 
             if _is_ajax(request):
                 return JsonResponse({
